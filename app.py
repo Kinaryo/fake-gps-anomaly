@@ -39,7 +39,12 @@ def submit_data():
     global last_data
 
     data = request.json
-    current_timestamp = datetime.datetime.fromisoformat(data['timestamp'].replace("Z", "+00:00"))
+    try:
+        # Pastikan format timestamp yang diterima sesuai ISO 8601
+        current_timestamp = datetime.datetime.fromisoformat(data['timestamp'].replace("Z", "+00:00"))
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': 'Invalid timestamp format'}), 400
+
     current_lat = data['latitude']
     current_lon = data['longitude']
 
@@ -72,6 +77,7 @@ def submit_data():
     # Simpan data baru ke CSV
     with open(DATA_FILE, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
+        # Menulis header hanya jika file kosong
         if csvfile.tell() == 0:
             writer.writerow(['latitude', 'longitude', 'accuracy', 'timestamp', 'delta_time', 'distance', 'speed', 'ip', 'label', 'anomaly'])
         writer.writerow([current_lat, current_lon, data['accuracy'], data['timestamp'], delta_time, distance, speed, data['ip'], data['label'], anomaly])
