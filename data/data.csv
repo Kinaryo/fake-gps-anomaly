@@ -1,2 +1,2 @@
 id,latitude,longitude,accuracy,timestamp,delta_time,distance,speed,ip,label,anomaly,from_to
-1,-8.51807523201674,140.40563428145435,198,2024-11-28T20:57:09.456Z,,0,,192.168.0.1,genuine,False,N/A
+1,55.755826,37.6173,150,2024-11-28T21:00:37.291Z,,0,,192.168.0.1,genuine,False,N/A
