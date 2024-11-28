@@ -1,13 +1,28 @@
 {
+    "version": 2,
     "builds": [
       {
         "src": "app.py",
         "use": "@vercel/python",
         "config": {
-          "includeFiles": ["requirements.txt", "build.sh"],
-          "installCommand": "./build.sh && pip install -r requirements.txt"
+          "maxDuration": 30,
+          "includeFiles": [
+            "requirements.txt",
+            "static/**",
+            "templates/**"
+          ]
         }
       }
-    ]
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "/app.py"
+      }
+    ],
+    "env": {
+      "FLASK_ENV": "production",
+      "FLASK_APP": "app.py"
+    }
   }
   
