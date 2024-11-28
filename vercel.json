@@ -21,6 +21,6 @@
     }
   ],
   "env": {
-    "MONGO_URI": "mongodb+srv://kinaryo733huda:b6D1Ue8JQ8JmeRGt@cluster0.k0ezp.mongodb.net/"
+    "MONGO_URI": "mongodb+srv://kinaryo733huda:b6D1Ue8JQ8JmeRGt@cluster0.k0ezp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
   }
 }

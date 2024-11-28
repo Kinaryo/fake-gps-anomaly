@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 # MongoDB Connection
-app.config["MONGO_URI"] = "mongodb+srv://kinaryo733huda:b6D1Ue8JQ8JmeRGt@cluster0.k0ezp.mongodb.net/fake-gps-anomaly?retryWrites=true&w=majority"
+app.config["MONGO_URI"] = "mongodb+srv://kinaryo733huda:b6D1Ue8JQ8JmeRGt@cluster0.k0ezp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 mongo = PyMongo(app)
 
 # Fungsi untuk menghitung jarak menggunakan Haversine
