@@ -113,5 +113,35 @@ def get_data():
                 })
     return jsonify(data_list)
 
+@app.route('/delete', methods=['POST'])
+def delete_data():
+    """Endpoint untuk menghapus data berdasarkan timestamp tertentu."""
+    data = request.json
+    timestamp_to_delete = data.get('timestamp')
+
+    if not timestamp_to_delete:
+        return jsonify({'status': 'error', 'message': 'Timestamp is required for deletion'}), 400
+
+    # Membaca data dari file CSV
+    new_data = []
+    deleted = False
+    with open(DATA_FILE, 'r') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            if row['timestamp'] != timestamp_to_delete:
+                new_data.append(row)
+            else:
+                deleted = True  # Tandai bahwa ada data yang dihapus
+
+    # Jika data ditemukan dan dihapus, tulis ulang file CSV
+    if deleted:
+        with open(DATA_FILE, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=['latitude', 'longitude', 'accuracy', 'timestamp', 'delta_time', 'distance', 'speed', 'ip', 'label', 'anomaly'])
+            writer.writeheader()
+            writer.writerows(new_data)
+        return jsonify({'status': 'success', 'message': 'Data deleted successfully!'})
+    else:
+        return jsonify({'status': 'error', 'message': 'No matching data found for the given timestamp'}), 404
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

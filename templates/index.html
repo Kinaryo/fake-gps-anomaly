@@ -26,6 +26,8 @@
                 <!-- Data akan di-load di sini -->
             </tbody>
         </table>
+        <h3>Hapus Data</h3>
+        <button onclick="deleteData()">Hapus Data</button>
     </div>
 
     <script>
@@ -79,6 +81,29 @@
                         tableBody.appendChild(row);
                     });
                 });
+        }
+
+        function deleteData() {
+            const timestamp = prompt("Masukkan timestamp data yang ingin dihapus:");
+
+            if (timestamp) {
+                fetch('/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ timestamp: timestamp })
+                })
+                .then(response => response.json())
+                .then(response => {
+                    if (response.status === 'success') {
+                        alert('Data berhasil dihapus');
+                        loadData();
+                    } else {
+                        alert(response.message);
+                    }
+                });
+            }
         }
 
         // Load data saat halaman pertama kali dimuat
