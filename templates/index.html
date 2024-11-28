@@ -37,79 +37,59 @@
     </div>
 
     <script>
-        document.getElementById('get-location').addEventListener('click', () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        const data = {
-                            latitude: position.coords.latitude,
-                            longitude: position.coords.longitude,
-                            accuracy: position.coords.accuracy,
-                            timestamp: new Date().toISOString(),
-                            ip: await fetch('https://api.ipify.org?format=json')
-                                    .then(response => response.json())
-                                    .then(data => data.ip),
-                            label: 'genuine' // Label default, bisa diubah nanti
-                        };
+        document.getElementById('get-location').addEventListener('click', function() {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const data = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    timestamp: new Date().toISOString(),
+                    ip: '192.168.0.1',  // Ganti dengan IP aktual jika diperlukan
+                    label: 'genuine'
+                };
 
-                        // Kirim data ke server
-                        fetch('/submit', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(data)
-                        })
-                        .then(response => response.json())
-                        .then(result => {
-                            document.getElementById('status').innerText = result.message;
-                            document.getElementById('anomaly').innerText = result.anomaly ? 'Anomaly detected: Data may be fake.' : 'No anomaly detected.';
-                            loadTableData();
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            document.getElementById('status').innerText = 'Error saving data.';
-                        });
+                fetch('/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
                     },
-                    (error) => {
-                        document.getElementById('status').innerText = 'Unable to get location.';
-                    }
-                );
-            } else {
-                document.getElementById('status').innerText = 'Geolocation is not supported by this browser.';
-            }
+                    body: JSON.stringify(data)
+                }).then(response => response.json())
+                  .then(data => {
+                      document.getElementById('status').innerText = data.message;
+                      document.getElementById('anomaly').innerText = `Anomaly detected: ${data.anomaly}`;
+                      loadData();  // Muat ulang data dari server
+                  });
+            });
         });
 
-        async function loadTableData() {
-            const tableBody = document.querySelector('#data-table tbody');
-            tableBody.innerHTML = '';
-
-            const data = await fetch('/data')
+        // Load data dari server dan tampilkan di tabel
+        function loadData() {
+            fetch('/data')
                 .then(response => response.json())
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                    return [];
+                .then(data => {
+                    const tbody = document.getElementById('data-table').getElementsByTagName('tbody')[0];
+                    tbody.innerHTML = '';  // Clear table body
+                    data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${row.latitude}</td>
+                            <td>${row.longitude}</td>
+                            <td>${row.accuracy}</td>
+                            <td>${row.timestamp}</td>
+                            <td>${row.delta_time}</td>
+                            <td>${row.distance}</td>
+                            <td>${row.speed}</td>
+                            <td>${row.ip}</td>
+                            <td>${row.label}</td>
+                            <td>${row.anomaly}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
                 });
-
-            data.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${row.latitude}</td>
-                    <td>${row.longitude}</td>
-                    <td>${row.accuracy}</td>
-                    <td>${row.timestamp}</td>
-                    <td>${row.delta_time || '-'}</td>
-                    <td>${row.distance || '-'}</td>
-                    <td>${row.speed || '-'}</td>
-                    <td>${row.ip}</td>
-                    <td>${row.label}</td>
-                    <td>${row.anomaly}</td>
-                `;
-                tableBody.appendChild(tr);
-            });
         }
 
-        document.addEventListener('DOMContentLoaded', loadTableData);
+        loadData();  // Load data when the page is loaded
     </script>
 </body>
 </html>
