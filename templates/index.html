@@ -11,36 +11,98 @@
         <h1>Fake GPS Detector</h1>
         <p>Klik tombol di bawah ini untuk mencatat data GPS Anda.</p>
         <button onclick="getLocation()">Ambil Lokasi</button>
-        <h2>Data GPS Terkini</h2>
+        
+        <!-- Tombol untuk memilih urutan data -->
+        <div>
+            <button onclick="loadData('desc')">Urutkan Terbaru</button>
+            <button onclick="loadData('asc')">Urutkan Terlama</button>
+        </div>
+
+        <h2>Data GPS</h2>
         <table id="gpsDataTable">
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>Latitude</th>
                     <th>Longitude</th>
                     <th>Timestamp</th>
                     <th>Speed (km/h)</th>
+                    <th>Distance (km)</th>
                     <th>Anomaly</th>
+                    <th>From-To</th>
+                    <th>Action</th>
                 </tr>
             </thead>
-            <tbody>
-                <!-- Data akan di-load di sini -->
-            </tbody>
+            <tbody></tbody>
         </table>
-        <h3>Hapus Data</h3>
-        <button onclick="deleteData()">Hapus Data</button>
+        <button onclick="deleteAll()">Hapus Semua Data</button>
     </div>
 
     <script>
+        // Fungsi untuk mendapatkan data berdasarkan urutan
+        function loadData(order = 'desc') {
+            fetch(`/data?order=${order}`)
+            .then(response => response.json())
+            .then(data => {
+                let table = document.getElementById("gpsDataTable").getElementsByTagName('tbody')[0];
+                table.innerHTML = "";  // Kosongkan tabel sebelum mengisi ulang
+                data.forEach(item => {
+                    let row = table.insertRow();
+                    row.innerHTML = `
+                        <td>${item.id}</td>
+                        <td>${item.latitude}</td>
+                        <td>${item.longitude}</td>
+                        <td>${item.timestamp}</td>
+                        <td>${item.speed || 'N/A'}</td>
+                        <td>${item.distance || 'N/A'}</td>
+                        <td>${item.anomaly}</td>
+                        <td>${item.from_to}</td>
+                        <td><button onclick="deleteData(${item.id})">Hapus</button></td>
+                    `;
+                });
+            });
+        }
+
+        // Fungsi untuk menghapus data berdasarkan ID
+        function deleteData(id) {
+            fetch(`/delete/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                loadData();  // Reload data
+            });
+        }
+
+        // Fungsi untuk menghapus semua data
+        function deleteAll() {
+            fetch('/delete_all', {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                loadData();  // Reload data
+            });
+        }
+
+        // Fungsi untuk mendapatkan lokasi
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(function(position) {
-                    const data = {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                        accuracy: position.coords.accuracy,
-                        timestamp: new Date().toISOString(),
-                        ip: '192.168.0.1',  // Placeholder IP
-                        label: 'genuine'
+                    let latitude = position.coords.latitude;
+                    let longitude = position.coords.longitude;
+                    let accuracy = position.coords.accuracy;
+
+                    let timestamp = new Date().toISOString();
+                    let data = {
+                        latitude: latitude,
+                        longitude: longitude,
+                        accuracy: accuracy,
+                        timestamp: timestamp,
+                        ip: "192.168.0.1",  // Misalkan menggunakan IP lokal
+                        label: "genuine"
                     };
 
                     fetch('/submit', {
@@ -51,11 +113,9 @@
                         body: JSON.stringify(data)
                     })
                     .then(response => response.json())
-                    .then(response => {
-                        if (response.status === 'success') {
-                            alert('Data berhasil disimpan');
-                            loadData();
-                        }
+                    .then(result => {
+                        alert('Data berhasil disimpan!');
+                        loadData();
                     });
                 });
             } else {
@@ -63,50 +123,7 @@
             }
         }
 
-        function loadData() {
-            fetch('/data')
-                .then(response => response.json())
-                .then(data => {
-                    const tableBody = document.querySelector('#gpsDataTable tbody');
-                    tableBody.innerHTML = '';
-                    data.forEach(item => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${item.latitude}</td>
-                            <td>${item.longitude}</td>
-                            <td>${item.timestamp}</td>
-                            <td>${item.speed}</td>
-                            <td>${item.anomaly}</td>
-                        `;
-                        tableBody.appendChild(row);
-                    });
-                });
-        }
-
-        function deleteData() {
-            const timestamp = prompt("Masukkan timestamp data yang ingin dihapus:");
-
-            if (timestamp) {
-                fetch('/delete', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ timestamp: timestamp })
-                })
-                .then(response => response.json())
-                .then(response => {
-                    if (response.status === 'success') {
-                        alert('Data berhasil dihapus');
-                        loadData();
-                    } else {
-                        alert(response.message);
-                    }
-                });
-            }
-        }
-
-        // Load data saat halaman pertama kali dimuat
+        // Muat data saat halaman dimuat
         window.onload = loadData;
     </script>
 </body>

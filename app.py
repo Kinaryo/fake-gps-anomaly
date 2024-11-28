@@ -1,8 +1,8 @@
 import math
 import datetime
-from flask import Flask, render_template, request, jsonify
 import csv
 import os
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -11,13 +11,6 @@ CORS(app)  # Mengaktifkan CORS
 # Tentukan file data CSV
 DATA_FILE = 'data/data.csv'
 os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-
-# Variabel global untuk menyimpan data sebelumnya
-last_data = {
-    'latitude': None,
-    'longitude': None,
-    'timestamp': None
-}
 
 # Fungsi untuk menghitung jarak menggunakan Haversine
 def haversine(lat1, lon1, lat2, lon2):
@@ -30,14 +23,24 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c  # Hasil dalam km
 
+# Fungsi untuk mendapatkan ID berikutnya
+def get_next_id():
+    """Mengambil ID berikutnya untuk data baru"""
+    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+        with open(DATA_FILE, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            rows = list(reader)
+            if rows:
+                last_row = rows[-1]
+                return int(last_row['id']) + 1
+    return 1  # Jika file kosong, mulai dengan ID 1
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/submit', methods=['POST'])
 def submit_data():
-    global last_data
-
     data = request.json
     try:
         # Pastikan format timestamp yang diterima sesuai ISO 8601
@@ -47,14 +50,18 @@ def submit_data():
 
     current_lat = data['latitude']
     current_lon = data['longitude']
+    accuracy = data['accuracy']
 
-    # Hitung delta time
+    # Menghitung jarak dan kecepatan
     delta_time = None
-    distance = None
+    distance = 0  # Jarak default
     speed = None
     anomaly = False  # Default tidak anomali
 
-    if last_data['timestamp']:
+    # Hitung delta_time dan deteksi anomali berdasarkan data sebelumnya
+    last_data = get_last_data()
+
+    if last_data:
         # Hitung delta time dalam detik
         delta_time = (current_timestamp - last_data['timestamp']).total_seconds()
 
@@ -79,27 +86,44 @@ def submit_data():
         writer = csv.writer(csvfile)
         # Menulis header hanya jika file kosong
         if csvfile.tell() == 0:
-            writer.writerow(['latitude', 'longitude', 'accuracy', 'timestamp', 'delta_time', 'distance', 'speed', 'ip', 'label', 'anomaly'])
-        writer.writerow([current_lat, current_lon, data['accuracy'], data['timestamp'], delta_time, distance, speed, data['ip'], data['label'], anomaly])
+            writer.writerow(['id', 'latitude', 'longitude', 'accuracy', 'timestamp', 'delta_time', 'distance', 'speed', 'ip', 'label', 'anomaly', 'from_to'])
+        from_to = f"From ({last_data['latitude']}, {last_data['longitude']}) to ({current_lat}, {current_lon})" if last_data else "N/A"
+        writer.writerow([get_next_id(), current_lat, current_lon, accuracy, data['timestamp'], delta_time, distance, speed, data['ip'], data['label'], anomaly, from_to])
 
-    # Update last_data
-    last_data['latitude'] = current_lat
-    last_data['longitude'] = current_lon
-    last_data['timestamp'] = current_timestamp
+    return jsonify({'status': 'success', 'message': 'Data saved successfully!', 'anomaly': anomaly, 'distance': distance, 'from_to': from_to})
 
-    # Return hasil deteksi
-    return jsonify({'status': 'success', 'message': 'Data saved successfully!', 'anomaly': anomaly})
+def get_last_data():
+    """Mengambil data terakhir dari file CSV"""
+    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+        with open(DATA_FILE, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            rows = list(reader)
+            if rows:
+                last_row = rows[-1]
+                return {
+                    'latitude': float(last_row['latitude']),
+                    'longitude': float(last_row['longitude']),
+                    'timestamp': datetime.datetime.fromisoformat(last_row['timestamp'].replace("Z", "+00:00"))
+                }
+    return None
 
 @app.route('/data', methods=['GET'])
 def get_data():
     """Endpoint untuk membaca data dari CSV dan mengembalikannya dalam format JSON sesuai urutan header."""
+    order = request.args.get('order', 'desc')  # Default 'desc' untuk dari terbaru ke terlama
     data_list = []
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as csvfile:
             reader = csv.DictReader(csvfile)
-            for row in reader:
+            rows = list(reader)
+
+            # Mengurutkan data berdasarkan timestamp
+            rows.sort(key=lambda x: datetime.datetime.fromisoformat(x['timestamp'].replace("Z", "+00:00")), reverse=(order == 'desc'))
+
+            for row in rows:
                 # Menjamin urutan data sesuai dengan header
                 data_list.append({
+                    'id': row['id'],
                     'latitude': row['latitude'],
                     'longitude': row['longitude'],
                     'accuracy': row['accuracy'],
@@ -109,39 +133,37 @@ def get_data():
                     'speed': row['speed'],
                     'ip': row['ip'],
                     'label': row['label'],
-                    'anomaly': row['anomaly']
+                    'anomaly': row['anomaly'],
+                    'from_to': row['from_to']
                 })
     return jsonify(data_list)
 
-@app.route('/delete', methods=['POST'])
-def delete_data():
-    """Endpoint untuk menghapus data berdasarkan timestamp tertentu."""
-    data = request.json
-    timestamp_to_delete = data.get('timestamp')
+@app.route('/delete/<int:id>', methods=['DELETE'])
+def delete_data(id):
+    """Menghapus data berdasarkan ID"""
+    rows = []
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            rows = list(reader)
 
-    if not timestamp_to_delete:
-        return jsonify({'status': 'error', 'message': 'Timestamp is required for deletion'}), 400
+        # Filter data yang bukan ID yang akan dihapus
+        rows = [row for row in rows if int(row['id']) != id]
 
-    # Membaca data dari file CSV
-    new_data = []
-    deleted = False
-    with open(DATA_FILE, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            if row['timestamp'] != timestamp_to_delete:
-                new_data.append(row)
-            else:
-                deleted = True  # Tandai bahwa ada data yang dihapus
-
-    # Jika data ditemukan dan dihapus, tulis ulang file CSV
-    if deleted:
+        # Simpan kembali data ke file CSV
         with open(DATA_FILE, 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=['latitude', 'longitude', 'accuracy', 'timestamp', 'delta_time', 'distance', 'speed', 'ip', 'label', 'anomaly'])
+            writer = csv.DictWriter(csvfile, fieldnames=['id', 'latitude', 'longitude', 'accuracy', 'timestamp', 'delta_time', 'distance', 'speed', 'ip', 'label', 'anomaly', 'from_to'])
             writer.writeheader()
-            writer.writerows(new_data)
-        return jsonify({'status': 'success', 'message': 'Data deleted successfully!'})
-    else:
-        return jsonify({'status': 'error', 'message': 'No matching data found for the given timestamp'}), 404
+            writer.writerows(rows)
+
+    return jsonify({'status': 'success', 'message': f'Data with ID {id} has been deleted.'})
+
+@app.route('/delete_all', methods=['DELETE'])
+def delete_all_data():
+    """Menghapus semua data"""
+    if os.path.exists(DATA_FILE):
+        os.remove(DATA_FILE)
+    return jsonify({'status': 'success', 'message': 'All data has been deleted.'})
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
