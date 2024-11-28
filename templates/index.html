@@ -9,87 +9,80 @@
 <body>
     <div class="container">
         <h1>Fake GPS Detector</h1>
-        <p>Klik tombol di bawah ini untuk mencatat data lokasi Anda.</p>
-        <button id="get-location">Dapatkan Lokasi</button>
-        <p id="status"></p>
-        <p id="anomaly"></p>
-
-        <h2>Data Tersimpan</h2>
-        <table id="data-table">
+        <p>Klik tombol di bawah ini untuk mencatat data GPS Anda.</p>
+        <button onclick="getLocation()">Ambil Lokasi</button>
+        <h2>Data GPS Terkini</h2>
+        <table id="gpsDataTable">
             <thead>
                 <tr>
                     <th>Latitude</th>
                     <th>Longitude</th>
-                    <th>Accuracy</th>
                     <th>Timestamp</th>
-                    <th>Delta Time (s)</th>
-                    <th>Distance (km)</th>
                     <th>Speed (km/h)</th>
-                    <th>IP</th>
-                    <th>Label</th>
                     <th>Anomaly</th>
                 </tr>
             </thead>
             <tbody>
-                <!-- Data akan dimuat di sini -->
+                <!-- Data akan di-load di sini -->
             </tbody>
         </table>
     </div>
 
     <script>
-        document.getElementById('get-location').addEventListener('click', function() {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                const data = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    accuracy: position.coords.accuracy,
-                    timestamp: new Date().toISOString(),
-                    ip: '192.168.0.1',  // Ganti dengan IP aktual jika diperlukan
-                    label: 'genuine'
-                };
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const data = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: new Date().toISOString(),
+                        ip: '192.168.0.1',  // Placeholder IP
+                        label: 'genuine'
+                    };
 
-                fetch('/submit', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                }).then(response => response.json())
-                  .then(data => {
-                      document.getElementById('status').innerText = data.message;
-                      document.getElementById('anomaly').innerText = `Anomaly detected: ${data.anomaly}`;
-                      loadData();  // Muat ulang data dari server
-                  });
-            });
-        });
+                    fetch('/submit', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(response => {
+                        if (response.status === 'success') {
+                            alert('Data berhasil disimpan');
+                            loadData();
+                        }
+                    });
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
 
-        // Load data dari server dan tampilkan di tabel
         function loadData() {
             fetch('/data')
                 .then(response => response.json())
                 .then(data => {
-                    const tbody = document.getElementById('data-table').getElementsByTagName('tbody')[0];
-                    tbody.innerHTML = '';  // Clear table body
-                    data.forEach(row => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${row.latitude}</td>
-                            <td>${row.longitude}</td>
-                            <td>${row.accuracy}</td>
-                            <td>${row.timestamp}</td>
-                            <td>${row.delta_time}</td>
-                            <td>${row.distance}</td>
-                            <td>${row.speed}</td>
-                            <td>${row.ip}</td>
-                            <td>${row.label}</td>
-                            <td>${row.anomaly}</td>
+                    const tableBody = document.querySelector('#gpsDataTable tbody');
+                    tableBody.innerHTML = '';
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${item.latitude}</td>
+                            <td>${item.longitude}</td>
+                            <td>${item.timestamp}</td>
+                            <td>${item.speed}</td>
+                            <td>${item.anomaly}</td>
                         `;
-                        tbody.appendChild(tr);
+                        tableBody.appendChild(row);
                     });
                 });
         }
 
-        loadData();  // Load data when the page is loaded
+        // Load data saat halaman pertama kali dimuat
+        window.onload = loadData;
     </script>
 </body>
 </html>
