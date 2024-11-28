@@ -1,28 +1,26 @@
 {
-    "version": 2,
-    "builds": [
-      {
-        "src": "app.py",
-        "use": "@vercel/python",
-        "config": {
-          "maxDuration": 30,
-          "includeFiles": [
-            "requirements.txt",
-            "static/**",
-            "templates/**"
-          ]
-        }
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "/app.py"
-      }
-    ],
-    "env": {
-      "FLASK_ENV": "production",
-      "FLASK_APP": "app.py"
+  "version": 2,
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "templates/**/*",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "static/**/*",
+      "use": "@vercel/static"
     }
+  ],
+  "routes": [
+    {
+      "src": "/.*",
+      "dest": "app.py"
+    }
+  ],
+  "env": {
+    "MONGO_URI": "mongodb+srv://kinaryo733huda:b6D1Ue8JQ8JmeRGt@cluster0.k0ezp.mongodb.net/"
   }
-  
+}
