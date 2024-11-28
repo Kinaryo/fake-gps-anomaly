@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake GPS Detector</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Fake GPS Detector</h1>
+        <p>Klik tombol di bawah ini untuk mencatat data lokasi Anda.</p>
+        <button id="get-location">Dapatkan Lokasi</button>
+        <p id="status"></p>
+        <p id="anomaly"></p>
+
+        <h2>Data Tersimpan</h2>
+        <table id="data-table">
+            <thead>
+                <tr>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Accuracy</th>
+                    <th>Timestamp</th>
+                    <th>Delta Time (s)</th>
+                    <th>Distance (km)</th>
+                    <th>Speed (km/h)</th>
+                    <th>IP</th>
+                    <th>Label</th>
+                    <th>Anomaly</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Data akan dimuat di sini -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.getElementById('get-location').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const data = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            timestamp: new Date().toISOString(),
+                            ip: await fetch('https://api.ipify.org?format=json')
+                                    .then(response => response.json())
+                                    .then(data => data.ip),
+                            label: 'genuine' // Label default, bisa diubah nanti
+                        };
+
+                        // Kirim data ke server
+                        fetch('/submit', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        })
+                        .then(response => response.json())
+                        .then(result => {
+                            document.getElementById('status').innerText = result.message;
+                            document.getElementById('anomaly').innerText = result.anomaly ? 'Anomaly detected: Data may be fake.' : 'No anomaly detected.';
+                            loadTableData();
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            document.getElementById('status').innerText = 'Error saving data.';
+                        });
+                    },
+                    (error) => {
+                        document.getElementById('status').innerText = 'Unable to get location.';
+                    }
+                );
+            } else {
+                document.getElementById('status').innerText = 'Geolocation is not supported by this browser.';
+            }
+        });
+
+        async function loadTableData() {
+            const tableBody = document.querySelector('#data-table tbody');
+            tableBody.innerHTML = '';
+
+            const data = await fetch('/data')
+                .then(response => response.json())
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    return [];
+                });
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.latitude}</td>
+                    <td>${row.longitude}</td>
+                    <td>${row.accuracy}</td>
+                    <td>${row.timestamp}</td>
+                    <td>${row.delta_time || '-'}</td>
+                    <td>${row.distance || '-'}</td>
+                    <td>${row.speed || '-'}</td>
+                    <td>${row.ip}</td>
+                    <td>${row.label}</td>
+                    <td>${row.anomaly}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTableData);
+    </script>
+</body>
+</html>
